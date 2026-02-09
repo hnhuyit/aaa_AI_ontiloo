@@ -1,0 +1,58 @@
+function buildHeaders() {
+  const apiKey = process.env.ONTILOO_X_API_KEY;
+  if (!apiKey) throw new Error("MISSING_ONTILOO_API_KEY");
+
+  const headers = {
+    "Content-Type": "application/json",
+    "x-api-key": apiKey
+  };
+
+  // optional
+  const token = process.env.ONTILOO_AUTH_TOKEN;
+  if (token) headers["Authorization"] = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+
+  return headers;
+}
+
+function baseUrl() {
+  return (process.env.ONTILOO_BASE_URL || "https://api.ontiloo.com").replace(/\/+$/, "");
+}
+
+async function ontilooFetch(path, { method = "GET", body } = {}) {
+  const url = `${baseUrl()}${path}`;
+  const res = await fetch(url, {
+    method,
+    headers: buildHeaders(),
+    body: body ? JSON.stringify(body) : undefined
+  });
+
+  const text = await res.text();
+  let json = null;
+  try { json = text ? JSON.parse(text) : null; } catch { /* keep null */ }
+
+  if (!res.ok) {
+    // Ontiloo defines ErrorResponse; bubble it up in a controlled way
+    const err = new Error("ONTILOO_ERROR");
+    err.status = res.status;
+    err.payload = json || { code: "HTTP_ERROR", message: text || `HTTP ${res.status}` };
+    throw err;
+  }
+
+  return json;
+}
+
+// POST /api/v1/open-api/customer
+export async function addCustomer({ name, phone, email, dob }) {
+  const payload = {};
+  if (dob) payload.dob = dob;          // MM-dd
+  if (email) payload.email = email;
+  if (name) payload.name = name;
+  if (phone) payload.phone = phone;
+
+  return ontilooFetch("/api/v1/open-api/customer", { method: "POST", body: payload });
+}
+
+// POST /api/v1/open-api/appointments
+export async function bookAppointments(aibookRq) {
+  return ontilooFetch("/api/v1/open-api/appointments", { method: "POST", body: aibookRq });
+}
