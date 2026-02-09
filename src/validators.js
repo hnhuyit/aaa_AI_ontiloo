@@ -21,6 +21,7 @@ export function normalizePhone(input) {
  * (Ontiloo booking requires MM/dd/yyyy HH:mm)
  */
 export function toOntilooDateTime(ymdHm) {
+    console.log("run toOntilooDateTime")
   if (!ymdHm) return "";
   const s = String(ymdHm).trim();
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})$/);
