@@ -10,6 +10,8 @@ app.use(express.json({ limit: "1mb" }));
  * Retell -> your server -> Ontiloo
  */
 app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
+    
+    console.log("Run /appointments/create")
   try {
     const { customer, group = 1, note, referenceId, items } = req.body || {};
 

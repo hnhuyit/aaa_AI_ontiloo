@@ -43,6 +43,7 @@ async function ontilooFetch(path, { method = "GET", body } = {}) {
 
 // POST /api/v1/open-api/customer
 export async function addCustomer({ name, phone, email, dob }) {
+    console.log("Run addCustomer")
   const payload = {};
   if (dob) payload.dob = dob;          // MM-dd
   if (email) payload.email = email;
@@ -54,5 +55,6 @@ export async function addCustomer({ name, phone, email, dob }) {
 
 // POST /api/v1/open-api/appointments
 export async function bookAppointments(aibookRq) {
+    console.log("Run bookAppointments")
   return ontilooFetch("/api/v1/open-api/appointments", { method: "POST", body: aibookRq });
 }
