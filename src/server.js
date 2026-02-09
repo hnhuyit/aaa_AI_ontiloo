@@ -10,38 +10,41 @@ app.use(express.json({ limit: "1mb" }));
  * Retell -> your server -> Ontiloo
  */
 app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
-    
-    console.log("Run /appointments/create")
+  console.log("Run /appointments/create");
+
   try {
-    const { customer, group = 1, note, referenceId, items } = req.body || {};
+    const body = req.body || {};
+    const items = body.items;
 
     if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ ok: false, code: "INVALID_REQUEST", message: "Missing items" });
+      return res.status(400).json({
+        ok: false,
+        code: "INVALID_REQUEST",
+        message: "Missing items"
+      });
     }
 
-    // --- Ensure customerId (optional but recommended) ---
-    let customerId = customer?.id;
+    /* =========================
+       1. Resolve customerId
+    ========================== */
+    let customerId = body.customerId ?? body.customer?.id;
 
-    // If no customerId, but have contact -> create customer
     if (!customerId) {
-      const phone = normalizePhone(customer?.phone);
-      const name = customer?.name?.trim();
-      const email = customer?.email?.trim();
-      const dob = customer?.dob?.trim(); // MM-dd
+      const phone = normalizePhone(body.customer?.phone);
+      const name = body.customer?.name?.trim();
+      const email = body.customer?.email?.trim();
+      const dob = body.customer?.dob?.trim();
 
-      // minimal requirement you decide; I enforce phone OR email OR name
       if (!phone && !email && !name) {
         return res.status(400).json({
           ok: false,
           code: "MISSING_CUSTOMER_INFO",
-          message: "Need customer phone or email or name to create customer"
+          message: "Customer name or phone is required"
         });
       }
 
       const created = await addCustomer({ name, phone, email, dob });
 
-      // NOTE: Swagger says AnyObject; you MUST inspect real response to pick the correct id field.
-      // Common patterns: created.id, created.data.id, created.customerId...
       customerId =
         created?.id ??
         created?.data?.id ??
@@ -52,74 +55,124 @@ app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
         return res.status(502).json({
           ok: false,
           code: "CUSTOMER_CREATE_FAILED",
-          message: "Cannot get customerId from Ontiloo response",
+          message: "Cannot resolve customerId",
           raw: created
         });
       }
     }
 
-    // --- Map items to BookingItemsRq ---
+    /* =========================
+       2. DEFAULT VALUES (FIXED)
+    ========================== */
+    const DEFAULT_GROUP = Number(process.env.DEFAULT_GROUP ?? 1656);
+    const DEFAULT_SERVICE_IDS = (process.env.DEFAULT_SERVICE_IDS ?? "6137")
+      .split(",")
+      .map(Number);
+
+    const DEFAULT_REQUEST_STAFF =
+      process.env.DEFAULT_REQUEST_STAFF === "true" ? true : true;
+
+    const DEFAULT_STAFF_ID = Number(process.env.DEFAULT_STAFF_ID ?? 1643);
+    const DEFAULT_SOURCE_TYPE = process.env.DEFAULT_SOURCE_TYPE ?? "AI";
+
+    /* =========================
+       3. Map items → Ontiloo format
+    ========================== */
     const mappedItems = items.map((it) => {
-      if (!it?.serviceIds?.length) throw new Error("MISSING_SERVICE_IDS");
-      const startTime = toOntilooDateTime(it.startTime); // -> MM/dd/yyyy HH:mm
+      const startTime = toOntilooDateTime(it.startTime);
       const endTime = toOntilooDateTime(it.endTime);
+
+      const requestStaff =
+        typeof it.requestStaff === "boolean"
+          ? it.requestStaff
+          : DEFAULT_REQUEST_STAFF;
+
+      const serviceIds =
+        Array.isArray(it.serviceIds) && it.serviceIds.length > 0
+          ? it.serviceIds
+          : DEFAULT_SERVICE_IDS;
+
+      if (!serviceIds.length) {
+        return res.status(400).json({
+          ok: false,
+          code: "MISSING_SERVICE_IDS",
+          message: "serviceIds is required"
+        });
+      }
 
       const out = {
         startTime,
         endTime,
-        serviceIds: it.serviceIds,
-        requestStaff: !!it.requestStaff
+        requestStaff,
+        serviceIds
       };
 
-      if (it.requestStaff && it.staffId) out.staffId = it.staffId;
+      if (requestStaff) {
+        const staffId = it.staffId ?? DEFAULT_STAFF_ID;
+        if (!staffId) {
+          return res.status(400).json({
+            ok: false,
+            code: "MISSING_STAFF_ID",
+            message: "staffId is required when requestStaff=true"
+          });
+        }
+        out.staffId = staffId;
+      }
+
       return out;
     });
 
+    /* =========================
+       4. Final payload → Ontiloo
+    ========================== */
     const aibookRq = {
-      customerId,
-      group,
+      customerId: Number(customerId),
+      group: Number(body.group ?? DEFAULT_GROUP),
       items: mappedItems,
-      note: note || "",
-      referenceId: referenceId || "",
-      sourceType: "AI"
+      note: body.note ?? "",
+      referenceId: body.referenceId ?? "",
+      sourceType: body.sourceType ?? DEFAULT_SOURCE_TYPE
     };
 
     const booked = await bookAppointments(aibookRq);
 
-    // Same warning: response schema is AnyObject. Try extracting appointmentId.
     const appointmentId =
       booked?.appointmentId ??
       booked?.id ??
       booked?.data?.appointmentId ??
-      booked?.data?.id;
+      booked?.data?.id ??
+      null;
 
     return res.json({
       ok: true,
-      appointmentId: appointmentId || null,
-      message: "Booked",
+      appointmentId,
+      message: "Booked successfully",
       raw: booked
     });
   } catch (e) {
-    // Controlled error mapping
     if (e?.message === "INVALID_DATETIME_FORMAT") {
-      return res.status(400).json({ ok: false, code: "INVALID_DATETIME", message: "Invalid date/time format" });
-    }
-    if (e?.message === "MISSING_SERVICE_IDS") {
-      return res.status(400).json({ ok: false, code: "MISSING_SERVICE_IDS", message: "Missing serviceIds" });
+      return res.status(400).json({
+        ok: false,
+        code: "INVALID_DATETIME",
+        message: "Invalid date/time format"
+      });
     }
 
-    // Ontiloo error passthrough (sanitized)
     if (e?.message === "ONTILOO_ERROR") {
       const payload = e.payload || {};
       return res.status(502).json({
         ok: false,
         code: payload.code || "ONTILOO_ERROR",
-        message: payload.message || "Upstream error",
-        details: payload.details || undefined
+        message: payload.message || "Upstream error"
       });
     }
 
-    return res.status(500).json({ ok: false, code: "INTERNAL_ERROR", message: "Unexpected error" });
+    console.error(e);
+    return res.status(500).json({
+      ok: false,
+      code: "INTERNAL_ERROR",
+      message: "Unexpected error"
+    });
   }
 });
 
