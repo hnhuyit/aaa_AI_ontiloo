@@ -47,7 +47,7 @@ export async function ontilooFetch(path, { method = "GET", body } = {}) {
 
   const headers = {
     "Content-Type": "application/json",
-    "x-api-key": process.env.ONTILOO_API_KEY
+    "x-api-key": process.env.ONTILOO_X_API_KEY
   };
 
   // optional bearer token (nếu hệ thống yêu cầu)
