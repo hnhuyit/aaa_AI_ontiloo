@@ -89,13 +89,6 @@ app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
     // const serviceId = pickRandom(SERVICE_POOL);
     const staffId = pickRandom(STAFF_POOL);
 
-    // timeText is REQUIRED now
-    const timeText = typeof body.time === "string" ? body.time.trim() : "";
-    if (!timeText) {
-      return res.status(400).json({ ok: false, code: "MISSING_TIME", message: "time is required" });
-    }
-
-
     // 1) chọn serviceName (caller đưa hoặc default)
     const serviceName = typeof body.serviceName === "string" ? body.serviceName.trim() : "NAILS REFILL";
 
@@ -114,8 +107,14 @@ app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
     const serviceId = picked.serviceId;
     const durationMinutes = picked.durationMinutes;
 
+    // timeText is REQUIRED now
+    const timeText = typeof body.time === "string" ? body.time.trim() : "";
+    if (!timeText) {
+      return res.status(400).json({ ok: false, code: "MISSING_TIME", message: "time is required" });
+    }
     const { startTime, endTime } = buildStartEndFromTimeText(timeText, durationMinutes);
     
+    console.log("Time ", startTime, endTime)
     // temp reference
     const tempRef = `AI-${Date.now()}`;
 
