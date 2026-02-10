@@ -18,27 +18,70 @@ function baseUrl() {
   return (process.env.ONTILOO_BASE_URL || "https://api.ontiloo.com").replace(/\/+$/, "");
 }
 
-async function ontilooFetch(path, { method = "GET", body } = {}) {
-  const url = `${baseUrl()}${path}`;
-  const res = await fetch(url, {
-    method,
-    headers: buildHeaders(),
-    body: body ? JSON.stringify(body) : undefined
-  });
+// async function ontilooFetch(path, { method = "GET", body } = {}) {
+//   const url = `${baseUrl()}${path}`;
+//   const res = await fetch(url, {
+//     method,
+//     headers: buildHeaders(),
+//     body: body ? JSON.stringify(body) : undefined
+//   });
 
-  const text = await res.text();
-  let json = null;
-  try { json = text ? JSON.parse(text) : null; } catch { /* keep null */ }
+//   const text = await res.text();
+//   let json = null;
+//   try { json = text ? JSON.parse(text) : null; } catch { /* keep null */ }
 
-  if (!res.ok) {
-    // Ontiloo defines ErrorResponse; bubble it up in a controlled way
-    const err = new Error("ONTILOO_ERROR");
-    err.status = res.status;
-    err.payload = json || { code: "HTTP_ERROR", message: text || `HTTP ${res.status}` };
-    throw err;
+//   if (!res.ok) {
+//     // Ontiloo defines ErrorResponse; bubble it up in a controlled way
+//     const err = new Error("ONTILOO_ERROR");
+//     err.status = res.status;
+//     err.payload = json || { code: "HTTP_ERROR", message: text || `HTTP ${res.status}` };
+//     throw err;
+//   }
+
+//   return json;
+// }
+
+export async function ontilooFetch(path, { method = "GET", body } = {}) {
+  const base = process.env.ONTILOO_BASE_URL || "https://api.ontiloo.com";
+  const url = `${base}${path}`;
+
+  const headers = {
+    "Content-Type": "application/json",
+    "x-api-key": process.env.ONTILOO_API_KEY
+  };
+
+  // optional bearer token (nếu hệ thống yêu cầu)
+  if (process.env.ONTILOO_BEARER_TOKEN) {
+    headers["Authorization"] = `Bearer ${process.env.ONTILOO_BEARER_TOKEN}`;
   }
 
-  return json;
+  if (!headers["x-api-key"]) {
+    throw new Error("MISSING_ONTILOO_API_KEY");
+  }
+
+  try {
+    const res = await fetch(url, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined
+    });
+
+    const text = await res.text();
+    let data;
+    try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
+
+    if (!res.ok) {
+      const e = new Error("ONTILOO_ERROR");
+      e.payload = data;
+      e.status = res.status;
+      throw e;
+    }
+
+    return data;
+  } catch (err) {
+    // giữ nguyên pattern bạn đang dùng
+    throw err;
+  }
 }
 
 // POST /api/v1/open-api/customer
