@@ -1,6 +1,7 @@
 import express from "express";
 import { requireSecret, normalizePhone, toOntilooDateTime, formatYMDHM, getNowWithOffsetMinutes, roundUpMinutes } from "./validators.js";
 import { addCustomer, updateAppointmentNote, bookAppointments, deleteAppointmentById } from "./ontiloo.js";
+import { buildStartEndFromTimeText } from "./time.js";
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
@@ -46,11 +47,11 @@ app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
     });
 
     if (!name || !phone) {
-    return res.status(400).json({
-        ok: false,
-        code: "MISSING_CUSTOMER_INFO",
-        message: "Customer name and phone are required"
-    });
+      return res.status(400).json({
+          ok: false,
+          code: "MISSING_CUSTOMER_INFO",
+          message: "Customer name and phone are required"
+      });
     }
 
     // ====== DEFAULTS (set via ENV; fall back to your known working values) ======
@@ -66,54 +67,16 @@ app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
     const DEFAULT_STAFF_ID = Number(process.env.DEFAULT_STAFF_ID ?? 1643);
     const DEFAULT_SOURCE_TYPE = process.env.DEFAULT_SOURCE_TYPE ?? "AI";
 
-    // ====== DEFAULT TIME SETTINGS ======
-    const TZ_OFFSET_MIN = Number(process.env.TZ_OFFSET_MINUTES ?? 420);         // VN = 420
-    const LEAD_MIN = Number(process.env.DEFAULT_LEAD_MINUTES ?? 60);            // now + 60'
-    const DURATION_MIN = Number(process.env.DEFAULT_DURATION_MINUTES ?? 30);    // 30'
-    const ROUND_MIN = Number(process.env.DEFAULT_ROUND_MINUTES ?? 30);          // round to 30'
-
     // ====== Resolve customerId (create customer if needed) ======
+    // create/find customerId (giữ nguyên logic của bạn)
     let customerId = body.customerId ?? body.customer?.id;
-
     if (!customerId) {
-      const email = body.customer?.email?.trim();
-      const dob = body.customer?.dob?.trim(); // MM-dd (optional)
-
-      const created = await addCustomer({ name, phone, email, dob });
-
-      customerId =
-        created?.id ??
-        created?.data?.id ??
-        created?.customerId ??
-        created?.data?.customerId;
-
-      if (!customerId) {
-        return res.status(502).json({
-          ok: false,
-          code: "CUSTOMER_CREATE_FAILED",
-          message: "Cannot resolve customerId from upstream",
-          raw: created
-        });
-      }
+      const created = await addCustomer({ name, phone });
+      customerId = created?.id ?? created?.data?.id ?? created?.customerId ?? created?.data?.customerId;
+      if (!customerId) return res.status(502).json({ ok: false, code: "CUSTOMER_CREATE_FAILED", message: "Cannot get customerId" });
     }
 
-    // ====== Build DEFAULT time if items missing ======
-    let items = body.items;
-
-    if (!Array.isArray(items) || items.length === 0) {
-      // auto-generate time
-      const nowLocal = getNowWithOffsetMinutes(TZ_OFFSET_MIN);
-      const start = roundUpMinutes(new Date(nowLocal.getTime() + LEAD_MIN * 60000), ROUND_MIN);
-      const end = new Date(start.getTime() + DURATION_MIN * 60000);
-
-      items = [
-        {
-          startTime: formatYMDHM(start), // "YYYY-MM-DD HH:mm"
-          endTime: formatYMDHM(end)      // "YYYY-MM-DD HH:mm"
-        }
-      ];
-    }
-
+    // Random service + staff; duration: lấy từ env hoặc map theo service nếu bạn muốn
     const STAFF_POOL = [1643, 1650, 1656];
     const SERVICE_POOL = [
         6136,
@@ -135,26 +98,62 @@ app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
         ]
     const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-    const mappedItems = items.map((it) => {
-        const startTime = toOntilooDateTime(it.startTime);
-        const endTime = toOntilooDateTime(it.endTime);
 
-        const serviceIds =
-            Array.isArray(it.serviceIds) && it.serviceIds.length > 0
-            ? it.serviceIds
-            : [pickRandom(SERVICE_POOL)];
+    // // ====== DEFAULT TIME SETTINGS ======
+    // const TZ_OFFSET_MIN = Number(process.env.TZ_OFFSET_MINUTES ?? 420);         // VN = 420
+    // const LEAD_MIN = Number(process.env.DEFAULT_LEAD_MINUTES ?? 60);            // now + 60'
+    // const DURATION_MIN = Number(process.env.DEFAULT_DURATION_MINUTES ?? 30);    // 30'
+    // const ROUND_MIN = Number(process.env.DEFAULT_ROUND_MINUTES ?? 30);          // round to 30'
 
-        const requestStaff =
-            typeof it.requestStaff === "boolean" ? it.requestStaff : true;
+    // timeText is REQUIRED now
+    const timeText = typeof body.time === "string" ? body.time.trim() : "";
+    if (!timeText) {
+      return res.status(400).json({ ok: false, code: "MISSING_TIME", message: "time is required" });
+    }
+    
+    // duration minutes: set default 60, hoặc tùy serviceId nếu bạn map durations
+    const durationMinutes = Number(process.env.DEFAULT_DURATION_MINUTES || 60);
 
-        const out = { startTime, endTime, requestStaff, serviceIds };
+    const { startTime, endTime } = buildStartEndFromTimeText(timeText, durationMinutes);
 
-        if (requestStaff) {
-            out.staffId = it.staffId ?? pickRandom(STAFF_POOL);
-        }
+    // // ====== Build DEFAULT time if items missing ======
+    // let items = body.items;
 
-        return out;
-    });
+    // if (!Array.isArray(items) || items.length === 0) {
+    //   // auto-generate time
+    //   const nowLocal = getNowWithOffsetMinutes(TZ_OFFSET_MIN);
+    //   const start = roundUpMinutes(new Date(nowLocal.getTime() + LEAD_MIN * 60000), ROUND_MIN);
+    //   const end = new Date(start.getTime() + DURATION_MIN * 60000);
+
+    //   items = [
+    //     {
+    //       startTime: formatYMDHM(start), // "YYYY-MM-DD HH:mm"
+    //       endTime: formatYMDHM(end)      // "YYYY-MM-DD HH:mm"
+    //     }
+    //   ];
+    // }
+
+    // const mappedItems = items.map((it) => {
+    //     const startTime = toOntilooDateTime(it.startTime);
+    //     const endTime = toOntilooDateTime(it.endTime);
+
+    //     const serviceIds =
+    //         Array.isArray(it.serviceIds) && it.serviceIds.length > 0
+    //         ? it.serviceIds
+    //         : [pickRandom(SERVICE_POOL)];
+
+    //     const requestStaff =
+    //         typeof it.requestStaff === "boolean" ? it.requestStaff : true;
+
+    //     const out = { startTime, endTime, requestStaff, serviceIds };
+
+    //     if (requestStaff) {
+    //         out.staffId = it.staffId ?? pickRandom(STAFF_POOL);
+    //     }
+
+    //     return out;
+    // });
+
     const tempRef = `AI-${Date.now()}`;
 
     const aibookRq = {
@@ -173,26 +172,26 @@ app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
 
     const booked = await bookAppointments(aibookRq);
 
-    const appointmentId =
-      booked?.appointmentId ??
-      booked?.id ??
-      booked?.data?.appointmentId ??
-      booked?.data?.id ??
-      null;
+    // const appointmentId =
+    //   booked?.appointmentId ??
+    //   booked?.id ??
+    //   booked?.data?.appointmentId ??
+    //   booked?.data?.id ??
+    //   null;
       
-    console.log("booked", booked, appointmentId)
+    // console.log("booked", booked, appointmentId)
 
-    if (appointmentId) {
-        try {
-            await updateAppointmentNote(appointmentId, appointmentId);
-        } catch (err) {
-            // không fail booking nếu update note lỗi
-            console.warn("Update appointment note failed", {
-            appointmentId,
-            err: err?.message
-            });
-        }
-    }
+    // if (appointmentId) {
+    //     try {
+    //         await updateAppointmentNote(appointmentId, appointmentId);
+    //     } catch (err) {
+    //         // không fail booking nếu update note lỗi
+    //         console.warn("Update appointment note failed", {
+    //         appointmentId,
+    //         err: err?.message
+    //         });
+    //     }
+    // }
 
     return res.json({
       ok: true,

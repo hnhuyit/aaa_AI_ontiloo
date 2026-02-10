@@ -124,6 +124,7 @@ export async function deleteAppointmentById(id) {
 
 // ontiloo.js
 export async function updateAppointmentNote(appointmentId, note) {
+  console.log("Run updateAppointmentNote");
   return ontilooFetch("/api/v1/appointment/updateAppointment", {
     method: "PUT",
     body: {
