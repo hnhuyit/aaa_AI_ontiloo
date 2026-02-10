@@ -159,14 +159,18 @@ app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
     const aibookRq = {
       customerId: Number(customerId),
       group: Number(body.group ?? DEFAULT_GROUP),
-      items: mappedItems,
-    //   note: body.note ?? "",
-    //     note: body.note ? String(body.note) : "", // note = booking ID nếu có
-    //   referenceId: body.referenceId ?? "",
-    //   sourceType: body.sourceType ?? DEFAULT_SOURCE_TYPE
-        note: tempRef,
-        referenceId: tempRef,
-        sourceType: "AI"
+      items: [
+        {
+          startTime, // MM/DD/YYYY HH:mm
+          endTime,
+          requestStaff: true,
+          serviceIds: [serviceId],
+          staffId
+        }
+      ],
+      note: tempRef,
+      referenceId: tempRef,
+      sourceType: "AI"
     };
     console.log("aibookRq", aibookRq)
 
