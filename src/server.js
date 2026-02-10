@@ -184,7 +184,7 @@ const DEFAULT_GROUP=1656
 const DEFAULT_SERVICE_IDS=6137
 const DEFAULT_REQUEST_STAFF=true
 const DEFAULT_STAFF_ID=1643
-const DEFAULT_SOURCE_TYPE=AI
+const DEFAULT_SOURCE_TYPE="AI"
 
 app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
   console.log("Run /appointments/create");
