@@ -196,6 +196,8 @@ app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
     const name = body.customer?.name?.trim();
     const phone = normalizePhone(body.customer?.phone);
 
+    console.log("info: ", name, phone)
+
     if (!name || !phone) {
       return res.status(400).json({
         ok: false,
