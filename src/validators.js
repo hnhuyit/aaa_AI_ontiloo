@@ -29,3 +29,28 @@ export function toOntilooDateTime(ymdHm) {
   const [, yyyy, MM, dd, HH, mm] = m;
   return `${MM}/${dd}/${yyyy} ${HH}:${mm}`;
 }
+
+
+//////////////////
+export function formatYMDHM(date) {
+  const pad = (n) => String(n).padStart(2, "0");
+  const yyyy = date.getFullYear();
+  const mm = pad(date.getMonth() + 1);
+  const dd = pad(date.getDate());
+  const HH = pad(date.getHours());
+  const MM = pad(date.getMinutes());
+  return `${yyyy}-${mm}-${dd} ${HH}:${MM}`;
+}
+
+export function getNowWithOffsetMinutes(offsetMinutes = 420) {
+  // Render server thường chạy UTC, mình convert sang giờ VN bằng offset
+  const now = new Date();
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+  return new Date(utcMs + offsetMinutes * 60000);
+}
+
+export function roundUpMinutes(date, roundTo = 30) {
+  const ms = date.getTime();
+  const roundMs = roundTo * 60 * 1000;
+  return new Date(Math.ceil(ms / roundMs) * roundMs);
+}
