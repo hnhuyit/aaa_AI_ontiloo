@@ -51,8 +51,8 @@ export async function ontilooFetch(path, { method = "GET", body } = {}) {
   };
 
   // optional bearer token (nếu hệ thống yêu cầu)
-  if (process.env.ONTILOO_BEARER_TOKEN) {
-    headers["Authorization"] = `Bearer ${process.env.ONTILOO_BEARER_TOKEN}`;
+  if (process.env.ONTILOO_AUTH_TOKEN) {
+    headers["Authorization"] = `Bearer ${process.env.ONTILOO_AUTH_TOKEN}`;
   }
 
   if (!headers["x-api-key"]) {
