@@ -1,5 +1,5 @@
 import express from "express";
-import { requireSecret, normalizePhone, toOntilooDateTime } from "./validators.js";
+import { requireSecret, normalizePhone, toOntilooDateTime, formatYMDHM, getNowWithOffsetMinutes, roundUpMinutes } from "./validators.js";
 import { addCustomer, bookAppointments } from "./ontiloo.js";
 
 const app = express();
