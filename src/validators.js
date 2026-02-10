@@ -9,10 +9,25 @@ export function requireSecret(req, res, next) {
   next();
 }
 
+// export function normalizePhone(input) {
+//   if (!input) return "";
+//   // keep digits only
+//   const digits = String(input).replace(/\D+/g, "");
+//   return digits;
+// }
+
 export function normalizePhone(input) {
-  if (!input) return "";
-  // keep digits only
-  const digits = String(input).replace(/\D+/g, "");
+  if (input === undefined || input === null) return "";
+  let s = String(input).trim();
+
+  // remove all non-digits
+  let digits = s.replace(/\D+/g, "");
+
+  // handle VN formats: +84xxxxxxxxx or 84xxxxxxxxx -> 0xxxxxxxxx
+  if (digits.startsWith("84") && digits.length >= 11) {
+    digits = "0" + digits.slice(2);
+  }
+
   return digits;
 }
 

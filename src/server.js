@@ -191,20 +191,25 @@ app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
 
   try {
     const body = req.body || {};
+        console.log("DEBUG body:", body);
 
     // ====== REQUIRED INPUT NOW: customer.name + customer.phone only ======
-    const name = body.customer?.name?.trim();
-    const phone = normalizePhone(body.customer?.phone);
+    const rawName = body.customer?.name;
+        const rawPhone = body.customer?.phone;
 
-    console.log("info: ", name, phone)
+        const name = typeof rawName === "string" ? rawName.trim() : "";
+        const phone = normalizePhone(rawPhone);
 
-    if (!name || !phone) {
-      return res.status(400).json({
-        ok: false,
-        code: "MISSING_CUSTOMER_INFO",
-        message: "Customer name and phone are required"
-      });
-    }
+        console.log("DEBUG customer:", { rawName, rawPhone, name, phone });
+
+        if (!name || !phone) {
+        return res.status(400).json({
+            ok: false,
+            code: "MISSING_CUSTOMER_INFO",
+            message: "Customer name and phone are required",
+            debug: { rawName, rawPhone, name, phone }
+        });
+        }
 
     // ====== DEFAULTS (set via ENV; fall back to your known working values) ======
     const DEFAULT_GROUP = Number(process.env.DEFAULT_GROUP ?? 1656);
