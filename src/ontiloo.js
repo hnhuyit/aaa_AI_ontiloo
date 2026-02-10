@@ -111,3 +111,13 @@ export async function deleteAppointmentById(id) {
     method: "DELETE"
   });
 }
+// ontiloo.js
+export async function updateAppointmentNote(appointmentId, note) {
+  console.log("Run updateAppointmentNote");
+  return ontilooFetch(`/api/v1/open-api/appointment/${appointmentId}`, {
+    method: "PUT",
+    body: {
+      note: String(note)
+    }
+  });
+}

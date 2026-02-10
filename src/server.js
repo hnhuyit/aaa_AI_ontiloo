@@ -1,6 +1,6 @@
 import express from "express";
 import { requireSecret, normalizePhone, toOntilooDateTime, formatYMDHM, getNowWithOffsetMinutes, roundUpMinutes } from "./validators.js";
-import { addCustomer, bookAppointments, deleteAppointmentById } from "./ontiloo.js";
+import { addCustomer, updateAppointmentNote, bookAppointments, deleteAppointmentById } from "./ontiloo.js";
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
@@ -155,14 +155,19 @@ app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
 
         return out;
     });
+    const tempRef = `AI-${Date.now()}`;
 
     const aibookRq = {
       customerId: Number(customerId),
       group: Number(body.group ?? DEFAULT_GROUP),
       items: mappedItems,
-      note: body.note ?? "",
-      referenceId: body.referenceId ?? "",
-      sourceType: body.sourceType ?? DEFAULT_SOURCE_TYPE
+    //   note: body.note ?? "",
+    //     note: body.note ? String(body.note) : "", // note = booking ID nếu có
+    //   referenceId: body.referenceId ?? "",
+    //   sourceType: body.sourceType ?? DEFAULT_SOURCE_TYPE
+        note: tempRef,
+        referenceId: tempRef,
+        sourceType: "AI"
     };
 
     const booked = await bookAppointments(aibookRq);
@@ -173,6 +178,18 @@ app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
       booked?.data?.appointmentId ??
       booked?.data?.id ??
       null;
+
+    if (appointmentId) {
+        try {
+            await updateAppointmentNote(appointmentId, appointmentId);
+        } catch (err) {
+            // không fail booking nếu update note lỗi
+            console.warn("Update appointment note failed", {
+            appointmentId,
+            err: err?.message
+            });
+        }
+    }
 
     return res.json({
       ok: true,
