@@ -161,12 +161,12 @@ function fmtOntiloo(dt) {
 //   return dt;
 // }
 
-export function buildStartEndFromTimeText(timeText, durationMinutes) {
-  const start = parseSpokenDateTime(timeText);
-  const dur = Number(durationMinutes || process.env.DEFAULT_DURATION_MINUTES || 60);
-  const end = start.add(dur, "minute");
-  return { startTime: fmtOntiloo(start), endTime: fmtOntiloo(end) };
-}
+// export function buildStartEndFromTimeText(timeText, durationMinutes) {
+//   const start = parseSpokenDateTime(timeText);
+//   const dur = Number(durationMinutes || process.env.DEFAULT_DURATION_MINUTES || 60);
+//   const end = start.add(dur, "minute");
+//   return { startTime: fmtOntiloo(start), endTime: fmtOntiloo(end) };
+// }
 
 function pad2(n) {
   return String(n).padStart(2, "0");
