@@ -11,16 +11,38 @@ app.use(express.json({ limit: "1mb" }));
  * Retell -> your server -> Ontiloo
  */
 
-const TZ_OFFSET_MINUTES=420
-const DEFAULT_LEAD_MINUTES=60
-const DEFAULT_DURATION_MINUTES=30
-const DEFAULT_ROUND_MINUTES=30
+// const TZ_OFFSET_MINUTES=420
+// const DEFAULT_LEAD_MINUTES=60
+// const DEFAULT_DURATION_MINUTES=30
+// const DEFAULT_ROUND_MINUTES=30
 
-const DEFAULT_GROUP=1656
-const DEFAULT_SERVICE_IDS=6137
-const DEFAULT_REQUEST_STAFF=true
-const DEFAULT_STAFF_ID=1643
-const DEFAULT_SOURCE_TYPE="AI"
+// const DEFAULT_GROUP=1656
+// const DEFAULT_SERVICE_IDS=6137
+// const DEFAULT_REQUEST_STAFF=true
+// const DEFAULT_STAFF_ID=1643
+// const DEFAULT_SOURCE_TYPE="AI"
+
+// ===== Defaults (env override) =====
+const TZ_OFFSET_MINUTES = Number(process.env.TZ_OFFSET_MINUTES ?? 420);
+const DEFAULT_LEAD_MINUTES = Number(process.env.DEFAULT_LEAD_MINUTES ?? 60);
+const DEFAULT_DURATION_MINUTES = Number(process.env.DEFAULT_DURATION_MINUTES ?? 30);
+const DEFAULT_ROUND_MINUTES = Number(process.env.DEFAULT_ROUND_MINUTES ?? 30);
+
+const DEFAULT_GROUP = Number(process.env.DEFAULT_GROUP ?? 1656);
+const DEFAULT_SOURCE_TYPE = process.env.DEFAULT_SOURCE_TYPE ?? "AI";
+const durationMinutes = Number(process.env.DEFAULT_DURATION_MINUTES || 60);
+
+const STAFF_POOL = (process.env.STAFF_POOL ?? "1643,1650,1656")
+  .split(",")
+  .map((s) => Number(String(s).trim()))
+  .filter(Boolean);
+
+const SERVICE_POOL = (process.env.SERVICE_POOL ?? "6136,6137,6138,6139,6140,6142,6143,6144,6145,6146,6147,6148,6149,6150,6151,6152")
+  .split(",")
+  .map((s) => Number(String(s).trim()))
+  .filter(Boolean);
+
+const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
   console.log("Run /appointments/create");
@@ -54,20 +76,7 @@ app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
       });
     }
 
-    // ====== DEFAULTS (set via ENV; fall back to your known working values) ======
-    const DEFAULT_GROUP = Number(process.env.DEFAULT_GROUP ?? 1656);
-    const DEFAULT_SERVICE_IDS = (process.env.DEFAULT_SERVICE_IDS ?? "6137")
-      .split(",")
-      .map(s => Number(String(s).trim()))
-      .filter(Boolean);
 
-    const DEFAULT_REQUEST_STAFF =
-      process.env.DEFAULT_REQUEST_STAFF ? process.env.DEFAULT_REQUEST_STAFF === "true" : true;
-
-    const DEFAULT_STAFF_ID = Number(process.env.DEFAULT_STAFF_ID ?? 1643);
-    const DEFAULT_SOURCE_TYPE = process.env.DEFAULT_SOURCE_TYPE ?? "AI";
-
-    // ====== Resolve customerId (create customer if needed) ======
     // create/find customerId (giữ nguyên logic của bạn)
     let customerId = body.customerId ?? body.customer?.id;
     if (!customerId) {
@@ -76,84 +85,18 @@ app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
       if (!customerId) return res.status(502).json({ ok: false, code: "CUSTOMER_CREATE_FAILED", message: "Cannot get customerId" });
     }
 
-    // Random service + staff; duration: lấy từ env hoặc map theo service nếu bạn muốn
-    const STAFF_POOL = [1643, 1650, 1656];
-    const SERVICE_POOL = [
-        6136,
-        6137,
-        6138,
-        6139,
-        6140,
-        6142,
-        6143,
-        6144,
-        6145,
-        6146,
-        6147,
-        6148,
-        6149,
-        6150,
-        6151,
-        6152
-        ]
-    const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
-
-
-    // // ====== DEFAULT TIME SETTINGS ======
-    // const TZ_OFFSET_MIN = Number(process.env.TZ_OFFSET_MINUTES ?? 420);         // VN = 420
-    // const LEAD_MIN = Number(process.env.DEFAULT_LEAD_MINUTES ?? 60);            // now + 60'
-    // const DURATION_MIN = Number(process.env.DEFAULT_DURATION_MINUTES ?? 30);    // 30'
-    // const ROUND_MIN = Number(process.env.DEFAULT_ROUND_MINUTES ?? 30);          // round to 30'
+    // pick staff/service
+    const serviceId = pickRandom(SERVICE_POOL);
+    const staffId = pickRandom(STAFF_POOL);
 
     // timeText is REQUIRED now
     const timeText = typeof body.time === "string" ? body.time.trim() : "";
     if (!timeText) {
       return res.status(400).json({ ok: false, code: "MISSING_TIME", message: "time is required" });
     }
-    
-    // duration minutes: set default 60, hoặc tùy serviceId nếu bạn map durations
-    const durationMinutes = Number(process.env.DEFAULT_DURATION_MINUTES || 60);
-
     const { startTime, endTime } = buildStartEndFromTimeText(timeText, durationMinutes);
-
-    // // ====== Build DEFAULT time if items missing ======
-    // let items = body.items;
-
-    // if (!Array.isArray(items) || items.length === 0) {
-    //   // auto-generate time
-    //   const nowLocal = getNowWithOffsetMinutes(TZ_OFFSET_MIN);
-    //   const start = roundUpMinutes(new Date(nowLocal.getTime() + LEAD_MIN * 60000), ROUND_MIN);
-    //   const end = new Date(start.getTime() + DURATION_MIN * 60000);
-
-    //   items = [
-    //     {
-    //       startTime: formatYMDHM(start), // "YYYY-MM-DD HH:mm"
-    //       endTime: formatYMDHM(end)      // "YYYY-MM-DD HH:mm"
-    //     }
-    //   ];
-    // }
-
-    // const mappedItems = items.map((it) => {
-    //     const startTime = toOntilooDateTime(it.startTime);
-    //     const endTime = toOntilooDateTime(it.endTime);
-
-    //     const serviceIds =
-    //         Array.isArray(it.serviceIds) && it.serviceIds.length > 0
-    //         ? it.serviceIds
-    //         : [pickRandom(SERVICE_POOL)];
-
-    //     const requestStaff =
-    //         typeof it.requestStaff === "boolean" ? it.requestStaff : true;
-
-    //     const out = { startTime, endTime, requestStaff, serviceIds };
-
-    //     if (requestStaff) {
-    //         out.staffId = it.staffId ?? pickRandom(STAFF_POOL);
-    //     }
-
-    //     return out;
-    // });
-
+    
+    // temp reference
     const tempRef = `AI-${Date.now()}`;
 
     const aibookRq = {
