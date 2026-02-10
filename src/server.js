@@ -1,6 +1,6 @@
 import express from "express";
 import { requireSecret, normalizePhone, toOntilooDateTime, formatYMDHM, getNowWithOffsetMinutes, roundUpMinutes } from "./validators.js";
-import { addCustomer, updateAppointmentNote, bookAppointments, deleteAppointmentById } from "./ontiloo.js";
+import { addCustomer, updateAppointmentNote, bookAppointments, deleteAppointmentById, searchServiceByName, pickServiceFromSearch } from "./ontiloo.js";
 import { buildStartEndFromTimeText } from "./time.js";
 
 const app = express();
@@ -30,7 +30,7 @@ const DEFAULT_ROUND_MINUTES = Number(process.env.DEFAULT_ROUND_MINUTES ?? 30);
 
 const DEFAULT_GROUP = Number(process.env.DEFAULT_GROUP ?? 1656);
 const DEFAULT_SOURCE_TYPE = process.env.DEFAULT_SOURCE_TYPE ?? "AI";
-const durationMinutes = Number(process.env.DEFAULT_DURATION_MINUTES || 60);
+// const durationMinutes = Number(process.env.DEFAULT_DURATION_MINUTES || 60);
 
 const STAFF_POOL = (process.env.STAFF_POOL ?? "1643,1650,1656")
   .split(",")
@@ -86,7 +86,7 @@ app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
     }
 
     // pick staff/service
-    const serviceId = pickRandom(SERVICE_POOL);
+    // const serviceId = pickRandom(SERVICE_POOL);
     const staffId = pickRandom(STAFF_POOL);
 
     // timeText is REQUIRED now
@@ -94,6 +94,26 @@ app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
     if (!timeText) {
       return res.status(400).json({ ok: false, code: "MISSING_TIME", message: "time is required" });
     }
+
+
+    // 1) chọn serviceName (caller đưa hoặc default)
+    const serviceName = typeof body.serviceName === "string" ? body.serviceName.trim() : "NAILS REFILL";
+
+    // 2) gọi API lấy service + duration
+    const serviceSearch = await searchServiceByName(serviceName);
+    const picked = pickServiceFromSearch(serviceSearch);
+
+    if (!picked?.serviceId || !picked?.durationMinutes) {
+      return res.status(400).json({
+        ok: false,
+        code: "SERVICE_NOT_FOUND",
+        message: "Service not found or missing duration"
+      });
+    }
+
+    const serviceId = picked.serviceId;
+    const durationMinutes = picked.durationMinutes;
+
     const { startTime, endTime } = buildStartEndFromTimeText(timeText, durationMinutes);
     
     // temp reference

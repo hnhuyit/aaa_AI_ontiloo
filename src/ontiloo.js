@@ -135,3 +135,24 @@ export async function updateAppointmentNote(appointmentId, note) {
     }
   });
 }
+
+// ontiloo.js
+export async function searchServiceByName(serviceName) {
+  console.log("Run searchServiceByName");
+  return ontilooFetch(`/api/v1/service/searchServiceByName`, {
+    method: "GET",
+    query: { serviceName } // nếu ontilooFetch chưa support query, xem note bên dưới
+  });
+}
+
+// helper extract
+export function pickServiceFromSearch(resp) {
+  const list = resp?.payload;
+  if (!Array.isArray(list) || list.length === 0) return null;
+
+  const s = list[0]; // lấy cái đầu tiên (hoặc bạn có thể chọn theo price/duration)
+  return {
+    serviceId: Number(s.id),
+    durationMinutes: Number(s.duration) // response của bạn là 35
+  };
+}
