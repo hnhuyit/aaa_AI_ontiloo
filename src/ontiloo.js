@@ -58,3 +58,13 @@ export async function bookAppointments(aibookRq) {
     console.log("Run bookAppointments")
   return ontilooFetch("/api/v1/open-api/appointments", { method: "POST", body: aibookRq });
 }
+
+// DELETE /api/v1/appointment/deleteAppointment/{id}
+export async function deleteAppointmentById(id) {
+  console.log("Run deleteAppointmentById");
+  if (!id) throw new Error("MISSING_APPOINTMENT_ID");
+
+  return ontilooFetch(`/api/v1/appointment/deleteAppointment/${id}`, {
+    method: "DELETE"
+  });
+}

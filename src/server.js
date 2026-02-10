@@ -1,6 +1,6 @@
 import express from "express";
 import { requireSecret, normalizePhone, toOntilooDateTime, formatYMDHM, getNowWithOffsetMinutes, roundUpMinutes } from "./validators.js";
-import { addCustomer, bookAppointments } from "./ontiloo.js";
+import { addCustomer, bookAppointments, deleteAppointmentById } from "./ontiloo.js";
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
@@ -370,6 +370,43 @@ app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
     return res.status(500).json({ ok: false, code: "INTERNAL_ERROR", message: "Unexpected error" });
   }
 });
+
+app.post("/v1/ontiloo/appointments/cancel", requireSecret, async (req, res) => {
+  try {
+    const body = (req.body && (req.body.args || req.body)) || {};
+    const appointmentId = body.appointmentId ?? body.id;
+
+    if (!appointmentId) {
+      return res.status(400).json({
+        ok: false,
+        code: "MISSING_APPOINTMENT_ID",
+        message: "appointmentId is required"
+      });
+    }
+
+    // Chọn 1 trong 2:
+    // const raw = await cancelAppointmentOpenApi(Number(appointmentId));
+    const raw = await deleteAppointmentById(Number(appointmentId));
+
+    return res.json({ ok: true, appointmentId: Number(appointmentId), message: "Cancelled", raw });
+  } catch (e) {
+    if (e?.message === "MISSING_APPOINTMENT_ID") {
+      return res.status(400).json({ ok: false, code: "MISSING_APPOINTMENT_ID", message: "appointmentId is required" });
+    }
+    if (e?.message === "ONTILOO_ERROR") {
+      const payload = e.payload || {};
+      return res.status(502).json({
+        ok: false,
+        code: payload.code || "ONTILOO_ERROR",
+        message: payload.message || "Upstream error",
+        details: payload.details || undefined
+      });
+    }
+    console.error(e);
+    return res.status(500).json({ ok: false, code: "INTERNAL_ERROR", message: "Unexpected error" });
+  }
+});
+
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`listening on ${port}`));
