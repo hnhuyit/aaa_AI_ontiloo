@@ -169,6 +169,7 @@ app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
         referenceId: tempRef,
         sourceType: "AI"
     };
+    console.log("aibookRq", aibookRq)
 
     const booked = await bookAppointments(aibookRq);
 
