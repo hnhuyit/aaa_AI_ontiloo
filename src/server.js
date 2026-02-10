@@ -197,27 +197,20 @@ app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
       ok: true,
       appointmentId,
       message: "Booked successfully",
+      chosen: { timeText, startTime, endTime, serviceId, staffId },
       raw: booked
     });
   } catch (e) {
-    if (e?.message === "INVALID_DATETIME_FORMAT") {
-      return res.status(400).json({ ok: false, code: "INVALID_DATETIME", message: "Invalid date/time format" });
+    
+    if (e?.message === "MISSING_TIME_OF_DAY") {
+      return res.status(400).json({ ok: false, code: "MISSING_TIME_OF_DAY", message: "Please provide a time (hour) for the appointment" });
     }
-    if (e?.message === "MISSING_SERVICE_IDS") {
-      return res.status(400).json({ ok: false, code: "MISSING_SERVICE_IDS", message: "Missing default serviceIds" });
+    if (e?.message === "INVALID_TIME") {
+      return res.status(400).json({ ok: false, code: "INVALID_TIME", message: "Time format not recognized" });
     }
-    if (e?.message === "MISSING_STAFF_ID") {
-      return res.status(400).json({ ok: false, code: "MISSING_STAFF_ID", message: "Missing default staffId" });
-    }
-
     if (e?.message === "ONTILOO_ERROR") {
       const payload = e.payload || {};
-      return res.status(502).json({
-        ok: false,
-        code: payload.code || "ONTILOO_ERROR",
-        message: payload.message || "Upstream error",
-        details: payload.details || undefined
-      });
+      return res.status(502).json({ ok: false, code: payload.code || "ONTILOO_ERROR", message: payload.message || "Upstream error" });
     }
 
     console.error(e);
