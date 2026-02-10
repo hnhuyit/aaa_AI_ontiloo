@@ -190,8 +190,8 @@ app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
   console.log("Run /appointments/create");
 
   try {
-        const body = (req.body && (req.body.args || req.body)) || {};
-        console.log("DEBUG body:", body);
+    const body = (req.body && (req.body.args || req.body)) || {};
+    // console.log("DEBUG body:", body);
 
     // ====== REQUIRED INPUT NOW: customer.name + customer.phone only ======
     const rawName = body.customer?.name;
@@ -201,13 +201,13 @@ app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
     const phone = normalizePhone(rawPhone);
 
     console.log("DEBUG incoming:", {
-    keys: Object.keys(req.body || {}),
-        hasArgs: !!req.body?.args,
-        customerPath: req.body?.customer ? "body.customer" : (req.body?.args?.customer ? "body.args.customer" : "missing"),
-        rawName,
-        rawPhone,
-        name,
-        phone
+        keys: Object.keys(req.body || {}),
+            hasArgs: !!req.body?.args,
+            customerPath: req.body?.customer ? "body.customer" : (req.body?.args?.customer ? "body.args.customer" : "missing"),
+            rawName,
+            rawPhone,
+            name,
+            phone
     });
 
     if (!name || !phone) {
@@ -279,30 +279,29 @@ app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
       ];
     }
 
-    // ====== Map to Ontiloo booking item format ======
+    const STAFF_POOL = [1643, 1650, 1656];
+    const SERVICE_POOL = [6137, 6138];
+    const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
     const mappedItems = items.map((it) => {
-      const startTime = toOntilooDateTime(it.startTime); // -> MM/dd/yyyy HH:mm
-      const endTime = toOntilooDateTime(it.endTime);
+        const startTime = toOntilooDateTime(it.startTime);
+        const endTime = toOntilooDateTime(it.endTime);
 
-      const requestStaff =
-        typeof it.requestStaff === "boolean" ? it.requestStaff : DEFAULT_REQUEST_STAFF;
+        const serviceIds =
+            Array.isArray(it.serviceIds) && it.serviceIds.length > 0
+            ? it.serviceIds
+            : [pickRandom(SERVICE_POOL)];
 
-      const serviceIds =
-        Array.isArray(it.serviceIds) && it.serviceIds.length > 0 ? it.serviceIds : DEFAULT_SERVICE_IDS;
+        const requestStaff =
+            typeof it.requestStaff === "boolean" ? it.requestStaff : true;
 
-      if (!serviceIds.length) {
-        throw new Error("MISSING_SERVICE_IDS");
-      }
+        const out = { startTime, endTime, requestStaff, serviceIds };
 
-      const out = { startTime, endTime, requestStaff, serviceIds };
+        if (requestStaff) {
+            out.staffId = it.staffId ?? pickRandom(STAFF_POOL);
+        }
 
-      if (requestStaff) {
-        const staffId = it.staffId ?? DEFAULT_STAFF_ID;
-        if (!staffId) throw new Error("MISSING_STAFF_ID");
-        out.staffId = staffId;
-      }
-
-      return out;
+        return out;
     });
 
     const aibookRq = {
