@@ -179,6 +179,8 @@ app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
       booked?.data?.appointmentId ??
       booked?.data?.id ??
       null;
+      
+    console.log("booked", booked, appointmentId)
 
     if (appointmentId) {
         try {
