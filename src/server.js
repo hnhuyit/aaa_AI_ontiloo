@@ -280,7 +280,24 @@ app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
     }
 
     const STAFF_POOL = [1643, 1650, 1656];
-    const SERVICE_POOL = [6137, 6138];
+    const SERVICE_POOL = [
+        6136,
+        6137,
+        6138,
+        6139,
+        6140,
+        6142,
+        6143,
+        6144,
+        6145,
+        6146,
+        6147,
+        6148,
+        6149,
+        6150,
+        6151,
+        6152
+        ]
     const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
     const mappedItems = items.map((it) => {

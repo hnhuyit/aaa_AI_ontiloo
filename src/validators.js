@@ -48,6 +48,7 @@ export function toOntilooDateTime(ymdHm) {
 
 //////////////////
 export function formatYMDHM(date) {
+    console.log("run formatYMDHM")
   const pad = (n) => String(n).padStart(2, "0");
   const yyyy = date.getFullYear();
   const mm = pad(date.getMonth() + 1);
@@ -58,6 +59,7 @@ export function formatYMDHM(date) {
 }
 
 export function getNowWithOffsetMinutes(offsetMinutes = 420) {
+    console.log("run getNowWithOffsetMinutes")
   // Render server thường chạy UTC, mình convert sang giờ VN bằng offset
   const now = new Date();
   const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
@@ -65,6 +67,7 @@ export function getNowWithOffsetMinutes(offsetMinutes = 420) {
 }
 
 export function roundUpMinutes(date, roundTo = 30) {
+    console.log("run roundUpMinutes")
   const ms = date.getTime();
   const roundMs = roundTo * 60 * 1000;
   return new Date(Math.ceil(ms / roundMs) * roundMs);
