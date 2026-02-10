@@ -119,14 +119,14 @@ app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
 
     const booked = await bookAppointments(aibookRq);
 
-    // const appointmentId =
-    //   booked?.appointmentId ??
-    //   booked?.id ??
-    //   booked?.data?.appointmentId ??
-    //   booked?.data?.id ??
-    //   null;
+    const appointmentId =
+      booked?.appointmentId ??
+      booked?.id ??
+      booked?.data?.appointmentId ??
+      booked?.data?.id ??
+      null;
       
-    // console.log("booked", booked, appointmentId)
+    console.log("booked", booked, appointmentId)
 
     // if (appointmentId) {
     //     try {
