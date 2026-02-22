@@ -268,8 +268,9 @@ async function testListAppointment() {
     console.log("RESULT appointment list:");
     console.dir(raw, { depth: null });
   } catch (e) {
-    console.error("testListAppointment ERROR:", e?.message || e);
-  }
+  console.error("testListAppointment ERROR:", e?.message || e);
+  if (e?.payload) console.error("Upstream payload:", e.payload);
+}
 }
 
 const port = process.env.PORT || 3000;

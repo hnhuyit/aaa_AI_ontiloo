@@ -70,11 +70,20 @@ export async function ontilooFetch(path, { method = "GET", body } = {}) {
     let data;
     try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
 
-    if (!res.ok) {
-      const e = new Error("ONTILOO_ERROR");
-      e.payload = data;
-      e.status = res.status;
-      throw e;
+    // if (!res.ok) {
+    //   const e = new Error("ONTILOO_ERROR");
+    //   e.payload = data;
+    //   e.status = res.status;
+    //   throw e;
+    // }
+
+    if (!resp.ok) {
+      const text = await resp.text();
+      console.error("ONTILOO_HTTP_ERROR", resp.status, text);
+
+      const err = new Error("ONTILOO_ERROR");
+      err.payload = { status: resp.status, body: text };
+      throw err;
     }
 
     return data;
