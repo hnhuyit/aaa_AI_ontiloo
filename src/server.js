@@ -259,10 +259,10 @@ async function testListAppointment() {
   try {
     const raw = await getListAppointment({
       startDate: "02-22-2026",
-      // endDate: "02-22-2026"
+      endDate: "02-22-2026"
     });
 
-    console.log("testListAppointment: ", raw);
+    console.log("testListAppointment:", raw);
   } catch (e) {
     console.error("testListAppointment ERROR:", e?.message);
     console.error(e?.payload);
