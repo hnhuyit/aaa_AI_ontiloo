@@ -97,13 +97,13 @@ export async function addCustomer({ name, phone, email, dob }) {
 }
 
 // ontiloo.js
-export async function getListAppointment({ startDate, endDate }) {
+export async function getListAppointment() {
     console.log("Run getListAppointment")
-  const qs = new URLSearchParams();
-  if (startDate) qs.set("startDate", startDate);
-  if (endDate) qs.set("endDate", endDate);
+  // const qs = new URLSearchParams();
+  // if (startDate) qs.set("startDate", startDate);
+  // if (endDate) qs.set("endDate", endDate);
 
-  return ontilooFetch(`/api/v1/appointment/getListAppointment?${qs.toString()}`, {
+  return ontilooFetch(`/api/v1/appointment/getListAppointment`, {
     method: "GET"
   });
 }

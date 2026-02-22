@@ -262,7 +262,7 @@ async function testListAppointment() {
 
     console.log("Run testListAppointment", { startDate, endDate });
 
-    const raw = await getListAppointment({ startDate, endDate });
+    const raw = await getListAppointment();
 
     console.log("RESULT appointment list:");
     console.dir(raw, { depth: null });
