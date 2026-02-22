@@ -77,6 +77,7 @@ export async function ontilooFetch(path, { method = "GET", body } = {}) {
     //   throw e;
     // }
 
+    
     if (!res.ok) {
       const text = await res.text();
       console.error("ONTILOO_HTTP_ERROR", res.status, text);
