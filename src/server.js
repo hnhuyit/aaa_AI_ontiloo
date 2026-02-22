@@ -265,7 +265,7 @@ async function testListAppointment() {
 
     const raw = await getListAppointment({ startDate });
 
-    console.log("RESULT appointment list:");
+    console.log("RESULT appointment list:", raw);
     // console.dir(raw, { depth: null });
   } catch (e) {
     console.error("testListAppointment ERROR:", e?.message || e);
