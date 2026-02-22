@@ -96,6 +96,18 @@ export async function addCustomer({ name, phone, email, dob }) {
   return ontilooFetch("/api/v1/open-api/customer", { method: "POST", body: payload });
 }
 
+// ontiloo.js
+export async function getListAppointment({ startDate, endDate }) {
+    console.log("Run getListAppointment")
+  const qs = new URLSearchParams();
+  if (startDate) qs.set("startDate", startDate);
+  if (endDate) qs.set("endDate", endDate);
+
+  return ontilooFetch(`/api/v1/appointment/getListAppointment?${qs.toString()}`, {
+    method: "GET"
+  });
+}
+
 // POST /api/v1/open-api/appointments
 export async function bookAppointments(aibookRq) {
     console.log("Run bookAppointments")

@@ -1,6 +1,6 @@
 import express from "express";
 import { requireSecret, normalizePhone, toOntilooDateTime, formatYMDHM, getNowWithOffsetMinutes, roundUpMinutes } from "./validators.js";
-import { addCustomer, updateAppointmentNote, bookAppointments, deleteAppointmentById, searchServiceByName, pickServiceFromSearch } from "./ontiloo.js";
+import { addCustomer, updateAppointmentNote, bookAppointments, deleteAppointmentById, searchServiceByName, pickServiceFromSearch, getListAppointment  } from "./ontiloo.js";
 import { buildStartEndFromTimeText } from "./time.js";
 
 const app = express();
@@ -43,6 +43,8 @@ const SERVICE_POOL = (process.env.SERVICE_POOL ?? "6136,6137,6138,6139,6140,6142
   .filter(Boolean);
 
 const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+
 
 app.post("/v1/ontiloo/appointments/create", requireSecret, async (req, res) => {
   console.log("Run /appointments/create");
@@ -222,5 +224,59 @@ app.post("/v1/ontiloo/appointments/cancel", requireSecret, async (req, res) => {
 });
 
 
+app.post("/v1/ontiloo/appointments/list", requireSecret, async (req, res) => {
+  try {
+    const body = (req.body && (req.body.args || req.body)) || {};
+    const startDate = typeof body.startDate === "string" ? body.startDate.trim() : "";
+    const endDate = typeof body.endDate === "string" ? body.endDate.trim() : "";
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        ok: false,
+        code: "MISSING_DATE_RANGE",
+        message: "startDate and endDate are required (MM-dd-yyyy)"
+      });
+    }
+
+    const raw = await getListAppointment({ startDate, endDate });
+    return res.json({ ok: true, startDate, endDate, raw });
+  } catch (e) {
+    if (e?.message === "ONTILOO_ERROR") {
+      const payload = e.payload || {};
+      return res.status(502).json({
+        ok: false,
+        code: payload.code || "ONTILOO_ERROR",
+        message: payload.message || "Upstream error",
+        details: payload.details || undefined
+      });
+    }
+    console.error(e);
+    return res.status(500).json({ ok: false, code: "INTERNAL_ERROR", message: "Unexpected error" });
+  }
+});
+
+async function testListAppointment() {
+  try {
+    const startDate = "02-22-2026";
+    const endDate = "02-22-2026";
+
+    console.log("Run testListAppointment", { startDate, endDate });
+
+    const raw = await getListAppointment({ startDate, endDate });
+
+    console.log("RESULT appointment list:");
+    console.dir(raw, { depth: null });
+  } catch (e) {
+    console.error("testListAppointment ERROR:", e?.message || e);
+  }
+}
+
 const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`listening on ${port}`));
+// app.listen(port, () => console.log(`listening on ${port}`));
+
+app.listen(port, async () => {
+  console.log(`listening on ${port}`);
+
+  // chạy test
+  await testListAppointment();
+});
