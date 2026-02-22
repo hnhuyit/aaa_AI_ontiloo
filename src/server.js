@@ -257,19 +257,15 @@ app.post("/v1/ontiloo/appointments/list", requireSecret, async (req, res) => {
 
 async function testListAppointment() {
   try {
-    const startDate = "02-22-2026";
-    // const endDate = "02-22-2026";
+    const raw = await getListAppointment({
+      startDate: "02-22-2026",
+      // endDate: "02-22-2026"
+    });
 
-    // console.log("Run testListAppointment", { startDate, endDate });
-    console.log("run testListAppointment:");
-
-    const raw = await getListAppointment({ startDate });
-
-    console.log("RESULT appointment list:", raw);
-    // console.dir(raw, { depth: null });
+    console.log("testListAppointment: ", raw);
   } catch (e) {
-    console.error("testListAppointment ERROR:", e?.message || e);
-    if (e?.payload) console.error("Upstream payload:", e.payload);
+    console.error("testListAppointment ERROR:", e?.message);
+    console.error(e?.payload);
   }
 }
 
