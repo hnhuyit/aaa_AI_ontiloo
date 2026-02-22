@@ -77,12 +77,12 @@ export async function ontilooFetch(path, { method = "GET", body } = {}) {
     //   throw e;
     // }
 
-    if (!resp.ok) {
-      const text = await resp.text();
-      console.error("ONTILOO_HTTP_ERROR", resp.status, text);
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("ONTILOO_HTTP_ERROR", res.status, text);
 
       const err = new Error("ONTILOO_ERROR");
-      err.payload = { status: resp.status, body: text };
+      err.payload = { status: res.status, body: text };
       throw err;
     }
 
