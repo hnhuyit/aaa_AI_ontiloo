@@ -362,6 +362,53 @@ function normalizeName(name = "") {
 function buildCustomerId(name, phone) {
   return `${normalizeName(name)}_${normalizePhoneAirtable(phone)}`;
 }
+
+function parseTimeToISO(input) {
+  const text = input.toLowerCase().trim();
+  const now = new Date();
+
+  let date = new Date(now);
+
+  // ==== 1. Xác định ngày ====
+  if (/mai|tomorrow/.test(text)) {
+    date.setDate(date.getDate() + 1);
+  } else if (/mốt|ngày kia/.test(text)) {
+    date.setDate(date.getDate() + 2);
+  } else {
+    // dd/mm hh:mm
+    const dm = text.match(/(\d{1,2})\/(\d{1,2})/);
+    if (dm) {
+      const d = parseInt(dm[1]);
+      const m = parseInt(dm[2]) - 1;
+      date.setMonth(m);
+      date.setDate(d);
+    }
+  }
+
+  // ==== 2. Xác định giờ ====
+  let hour = 9;
+  let minute = 0;
+
+  const hm = text.match(/(\d{1,2})(?:h|:| giờ)?\s*(\d{1,2})?/);
+  if (hm) {
+    hour = parseInt(hm[1]);
+    if (hm[2]) minute = parseInt(hm[2]);
+  }
+
+  // ==== 3. Điều chỉnh sáng / chiều / tối ====
+  if (/chiều|pm/.test(text) && hour < 12) hour += 12;
+  if (/tối/.test(text) && hour < 12) hour += 12;
+  if (/sáng|am/.test(text) && hour === 12) hour = 0;
+
+  date.setHours(hour, minute, 0, 0);
+
+  // ==== 4. Convert ISO +07 ====
+  const tzOffset = date.getTimezoneOffset() * 60000;
+  const localISO = new Date(date - tzOffset).toISOString().slice(0, -1);
+
+  return localISO;
+}
+
 /* =======================
    ENV
 ======================= */
@@ -532,7 +579,7 @@ app.get("/v1/airtable/availability", async (req, res) => {
 });
 
 // Create booking
-app.post("/v1/ontiloo/appointments/create", async (req, res) => {
+app.post("/v1/airtable/appointments", async (req, res) => {
   try {
     const { time, note, referenceId, customer } = req.body;
 
