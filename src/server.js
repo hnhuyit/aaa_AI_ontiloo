@@ -319,11 +319,6 @@ function getRandomService() {
   return SERVICE_LIST[Math.floor(Math.random() * SERVICE_LIST.length)];
 }
 
-function addMinutes(isoTime, minutes) {
-  const d = new Date(isoTime);
-  d.setMinutes(d.getMinutes() + minutes);
-  return d.toISOString();
-}
 function addMinutesKeepTZ(isoTime, minutes) {
   const d = new Date(isoTime);
   d.setMinutes(d.getMinutes() + minutes);
@@ -663,6 +658,12 @@ function addMinutes(date, minutes) {
   d.setMinutes(d.getMinutes() + minutes);
   return d;
 }
+
+// function addMinutes(isoTime, minutes) {
+//   const d = new Date(isoTime);
+//   d.setMinutes(d.getMinutes() + minutes);
+//   return d.toISOString();
+// }
 
 function formatSlotLabelPlus7(isoPlus7) {
   // isoPlus7 dạng: YYYY-MM-DDTHH:mm:ss+07:00
