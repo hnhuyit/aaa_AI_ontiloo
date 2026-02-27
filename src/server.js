@@ -312,7 +312,7 @@ async function testListAppointment() {
 // -------------------------------------------------------------------------------------------------------------------
 const SERVICE_LIST = [
   { id: "cut_hair", duration: 30 },
-  { id: "wash_hair", duration: 20 },
+  { id: "wash_hair", duration: 30 },
   { id: "spa", duration: 60 }
 ];
 function getRandomService() {
@@ -514,6 +514,21 @@ async function createAppointment(payload) {
   // 2) tính end_time theo duration
   const end_time = addMinutesLocal(start_time, service.duration);
 
+
+  // 2) capacity check (3 staff => 3 concurrent bookings)
+  const cap = await checkSlotCapacity({
+    startISO: start_time,
+    endISO: end_time,
+    capacity: 3
+  });
+
+  if (!cap.available) {
+    const e = new Error("TIME_SLOT_FULL");
+    e.status = 409; // để agent hiểu không available
+    e.meta = cap;
+    throw e;
+  }
+
   // 3) tìm staff available
   // const staffId = await findAvailableStaff(start_time, end_time);
   const staffId = getRandomStaff();
@@ -576,6 +591,45 @@ app.get("/v1/airtable/availability", async (req, res) => {
     });
   }
 });
+
+function buildSlotCountFilter({ startISO, endISO }) {
+  return `
+AND(
+  {start_time} < DATETIME_PARSE("${endISO}"),
+  {end_time} > DATETIME_PARSE("${startISO}")
+)
+`.trim();
+}
+
+async function checkSlotCapacity({ startISO, endISO, capacity = 3 }) {
+  const filterByFormula = buildSlotCountFilter({ startISO, endISO });
+
+  const qs = new URLSearchParams({
+    filterByFormula,
+    // chỉ cần biết >= capacity, lấy tối đa capacity record là đủ
+    maxRecords: String(capacity)
+  });
+
+  const data = await airtableRequest(
+    `/${encodeURIComponent(AIRTABLE_TABLE_APPOINTMENTS)}?${qs.toString()}`
+  );
+
+  const used = (data.records || []).length;
+
+  return {
+    available: used < capacity,
+    used,
+    capacity
+  };
+}
+
+function addMinutesISO(iso, minutes) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) throw new Error("INVALID_TIME");
+  d.setMinutes(d.getMinutes() + minutes);
+  // Airtable nhận tốt dạng ISO có Z; nếu bạn muốn +07:00 thì dùng hàm offset bạn đang dùng
+  return d.toISOString();
+}
 
 // Create booking
 app.post("/v1/airtable/appointments", async (req, res) => {
