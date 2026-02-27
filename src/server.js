@@ -532,24 +532,32 @@ app.get("/v1/airtable/availability", async (req, res) => {
 });
 
 // Create booking
-app.post("/v1/airtable/appointments", async (req, res) => {
+app.post("/v1/ontiloo/appointments/create", async (req, res) => {
   try {
-    const idempotency = req.header("Idempotency-Key") || "";
+    const { time, note, referenceId, customer } = req.body;
 
+    // validate payload từ tool
+    if (!time || !customer?.name || !customer?.phone) {
+      return res.status(400).json({ ok: false, error: "MISSING_REQUIRED_FIELDS" });
+    }
+
+    // parse spoken time -> start_time ISO (+07:00)
+    const start_time = parseTimeToISO(time);
+
+    // createAppointment phiên bản mới chỉ cần: name, phone, start_time
     const record = await createAppointment({
-      ...req.body,
-      idempotency_key: idempotency
+      name: customer.name,
+      phone: customer.phone,
+      start_time,
+      note: note || "",
+      idempotency_key: referenceId || ""
     });
 
-    res.status(201).json({
-      ok: true,
-      appointment: record
-    });
+    return res.json({ ok: true, appointment: record });
   } catch (e) {
-    res.status(e.status || 500).json({
+    return res.status(e.status || 500).json({
       ok: false,
       error: e.message,
-      conflicts: e.conflicts || null,
       detail: e.data || null
     });
   }
