@@ -500,7 +500,6 @@ async function createAppointment(payload) {
     phone,
     start_time,
     note,
-    idempotency_key
   } = payload;
 
   if (!name || !phone || !start_time) {
@@ -543,7 +542,6 @@ async function createAppointment(payload) {
               end_time,
               note: note || "",
               status: "PENDING",
-              idempotency_key: idempotency_key || ""
             }
           }
         ]
@@ -596,7 +594,6 @@ app.post("/v1/airtable/appointments", async (req, res) => {
       phone: customer.phone,
       start_time,
       note: note || "",
-      idempotency_key: idempotencyKey || referenceId || ""
     });
 
     return res.json({ ok: true, appointment: record });
