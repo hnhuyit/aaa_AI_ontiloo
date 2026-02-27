@@ -563,5 +563,5 @@ app.listen(port, async () => {
   console.log(`listening on ${port}`);
 
   // chạy test
-  await testListAppointment();
+  // await testListAppointment();
 });
