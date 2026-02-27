@@ -522,12 +522,28 @@ async function createAppointment(payload) {
     capacity: 3
   });
 
+  // if (!cap.available) {
+  //   const e = new Error("TIME_SLOT_FULL");
+  //   e.status = 409; // để agent hiểu không available
+  //   e.meta = cap;
+  //   throw e;
+  // }
+
   if (!cap.available) {
-    const e = new Error("TIME_SLOT_FULL");
-    e.status = 409; // để agent hiểu không available
-    e.meta = cap;
-    throw e;
-  }
+  const suggestions = await suggestAlternativeSlots({
+    startISO: start_time,
+    durationMin: service.duration,
+    capacity: 3,
+    windowMinutes: 120,
+    stepMinutes: 30,
+    limit: 3
+  });
+
+  const e = new Error("TIME_SLOT_FULL");
+  e.status = 409;
+  e.meta = { ...cap, suggestions };
+  throw e;
+}
 
   // 3) tìm staff available
   // const staffId = await findAvailableStaff(start_time, end_time);
@@ -631,6 +647,88 @@ function addMinutesISO(iso, minutes) {
   return d.toISOString();
 }
 
+function toIsoPlus7(date) {
+  const pad = (n) => String(n).padStart(2, "0");
+  const yyyy = date.getFullYear();
+  const mm = pad(date.getMonth() + 1);
+  const dd = pad(date.getDate());
+  const hh = pad(date.getHours());
+  const mi = pad(date.getMinutes());
+  const ss = pad(date.getSeconds());
+  return `${yyyy}-${mm}-${dd}T${hh}:${mi}:${ss}+07:00`;
+}
+
+function addMinutes(date, minutes) {
+  const d = new Date(date);
+  d.setMinutes(d.getMinutes() + minutes);
+  return d;
+}
+
+function formatSlotLabelPlus7(isoPlus7) {
+  // isoPlus7 dạng: YYYY-MM-DDTHH:mm:ss+07:00
+  // label gợi ý: "HH:mm"
+  const m = isoPlus7.match(/T(\d{2}):(\d{2})/);
+  return m ? `${m[1]}:${m[2]}` : isoPlus7;
+}
+
+/**
+ * Đề xuất slot trong khoảng ±windowMinutes (mặc định 120 phút) theo stepMinutes (mặc định 30 phút)
+ * Trả về danh sách slot available: [{ start_time, end_time, label }]
+ */
+async function suggestAlternativeSlots({
+  startISO,              // ISO +07:00
+  durationMin,           // phút
+  capacity = 3,
+  windowMinutes = 120,   // ± 2 tiếng
+  stepMinutes = 30,
+  limit = 3              // trả về 2-3 option là đẹp
+}) {
+  const base = new Date(startISO);
+  if (Number.isNaN(base.getTime())) {
+    const e = new Error("INVALID_TIME");
+    e.status = 400;
+    throw e;
+  }
+
+  // tạo offsets: -120, -90, ... -30, +30, ... +120 (bỏ 0 vì slot gốc full)
+  const offsets = [];
+  for (let m = -windowMinutes; m <= windowMinutes; m += stepMinutes) {
+    if (m === 0) continue;
+    offsets.push(m);
+  }
+
+  // ưu tiên gần nhất: sort theo |offset|
+  offsets.sort((a, b) => Math.abs(a) - Math.abs(b));
+
+  const suggestions = [];
+
+  for (const off of offsets) {
+    const sDate = addMinutes(base, off);
+    const start_time = toIsoPlus7(sDate);
+
+    // end = start + duration
+    const eDate = addMinutes(sDate, durationMin);
+    const end_time = toIsoPlus7(eDate);
+
+    const cap = await checkSlotCapacity({
+      startISO: start_time,
+      endISO: end_time,
+      capacity
+    });
+
+    if (cap.available) {
+      suggestions.push({
+        start_time,
+        end_time,
+        label: formatSlotLabelPlus7(start_time)
+      });
+      if (suggestions.length >= limit) break;
+    }
+  }
+
+  return suggestions;
+}
+
 // Create booking
 app.post("/v1/airtable/appointments", async (req, res) => {
   try {
@@ -655,6 +753,7 @@ app.post("/v1/airtable/appointments", async (req, res) => {
     return res.status(e.status || 500).json({
       ok: false,
       error: e.message,
+      meta: e.meta || null,
       detail: e.data || null
     });
   }
