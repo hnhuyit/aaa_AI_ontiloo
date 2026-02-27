@@ -347,7 +347,7 @@ function getRandomStaff() {
   return STAFF_LIST[Math.floor(Math.random() * STAFF_LIST.length)];
 }
 
-function normalizePhone(phone = "") {
+function normalizePhoneAirtable(phone = "") {
   return phone.replace(/\D/g, "");
 }
 
@@ -360,7 +360,7 @@ function normalizeName(name = "") {
 }
 
 function buildCustomerId(name, phone) {
-  return `${normalizeName(name)}_${normalizePhone(phone)}`;
+  return `${normalizeName(name)}_${normalizePhoneAirtable(phone)}`;
 }
 /* =======================
    ENV
