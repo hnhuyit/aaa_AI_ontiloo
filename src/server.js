@@ -269,6 +269,293 @@ async function testListAppointment() {
   }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// -------------------------------------------------------------------------------------------------------------------
+const SERVICE_LIST = [
+  { id: "cut_hair", duration: 30 },
+  { id: "wash_hair", duration: 20 },
+  { id: "spa", duration: 60 }
+];
+function getRandomService() {
+  return SERVICE_LIST[Math.floor(Math.random() * SERVICE_LIST.length)];
+}
+
+function addMinutes(isoTime, minutes) {
+  const d = new Date(isoTime);
+  d.setMinutes(d.getMinutes() + minutes);
+  return d.toISOString();
+}
+function addMinutesKeepTZ(isoTime, minutes) {
+  const d = new Date(isoTime);
+  d.setMinutes(d.getMinutes() + minutes);
+
+  const tzOffset = d.getTimezoneOffset() * 60000;
+  return new Date(d - tzOffset).toISOString().slice(0, -1);
+}
+function addMinutesLocal(isoTime, minutes) {
+  const d = new Date(isoTime);
+  d.setMinutes(d.getMinutes() + minutes);
+  return d.toISOString().replace("Z", "+07:00");
+}
+
+const STAFF_LIST = [
+  "staff_1",
+  "staff_2",
+  "staff_3"
+];
+
+function getRandomStaff() {
+  return STAFF_LIST[Math.floor(Math.random() * STAFF_LIST.length)];
+}
+
+function normalizePhone(phone = "") {
+  return phone.replace(/\D/g, "");
+}
+
+function normalizeName(name = "") {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/[^\w]/g, "");
+}
+
+function buildCustomerId(name, phone) {
+  return `${normalizeName(name)}_${normalizePhone(phone)}`;
+}
+/* =======================
+   ENV
+======================= */
+// const port = process.env.PORT || 3000;
+const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID || "app76taan1CLN4k7z";
+const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN || "";
+const AIRTABLE_TABLE_APPOINTMENTS = process.env.AIRTABLE_TABLE_APPOINTMENTS || "pos";
+
+
+/* =======================
+   Airtable Request
+======================= */
+async function airtableRequest(path, { method = "GET", body } = {}) {
+  if (!AIRTABLE_BASE_ID) throw new Error("MISSING_AIRTABLE_BASE_ID");
+  if (!AIRTABLE_TOKEN) throw new Error("MISSING_AIRTABLE_TOKEN");
+
+  const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}${path}`;
+
+  const res = await fetch(url, {
+    method,
+    headers: {
+      Authorization: `Bearer ${AIRTABLE_TOKEN}`,
+      "Content-Type": "application/json"
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+
+  const text = await res.text();
+  let data;
+  try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
+
+  if (!res.ok) {
+    const err = new Error("AIRTABLE_ERROR");
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+
+  return data;
+}
+
+
+/* =======================
+   Booking Rule: Overlap
+======================= */
+function buildConflictFilter({ staffRecordId, startISO, endISO }) {
+  return `
+AND(
+  {staffId} = "${staffRecordId}",
+  OR({status}="PENDING", {status}="CONFIRMED"),
+  {start_time} < DATETIME_PARSE("${endISO}"),
+  {end_time} > DATETIME_PARSE("${startISO}")
+)
+`.trim();
+}
+/* =======================
+   Check Availability
+======================= */
+async function checkAvailability({ staffRecordId, startISO, endISO }) {
+  const filterByFormula = buildConflictFilter({
+    staffRecordId,
+    startISO,
+    endISO
+  });
+
+  const qs = new URLSearchParams({
+    filterByFormula,
+    maxRecords: "10"
+  });
+
+  const data = await airtableRequest(
+    `/${encodeURIComponent(AIRTABLE_TABLE_APPOINTMENTS)}?${qs.toString()}`
+  );
+
+  const conflicts = data.records || [];
+
+  return {
+    available: conflicts.length === 0,
+    conflicts: conflicts.map(r => ({ id: r.id, ...r.fields }))
+  };
+}
+
+/* =======================
+   Create Appointment
+======================= */
+async function createAppointment(payload) {
+  const {
+    name,
+    phone,
+    start_time,
+    note,
+    idempotency_key
+  } = payload;
+
+  if (!name || !phone || !start_time) {
+    const e = new Error("MISSING_REQUIRED_FIELDS");
+    e.status = 400;
+    throw e;
+  }
+
+  // 1) random service
+  const service = getRandomService();
+
+  // 2) tính end_time theo duration
+  const end_time = addMinutesLocal(start_time, service.duration);
+
+  // 3) tìm staff available
+  const staffId = await findAvailableStaff(start_time, end_time);
+  if (!staffId) {
+    const e = new Error("NO_STAFF_AVAILABLE");
+    e.status = 409;
+    throw e;
+  }
+
+  // 4) build customerId
+  const customerId = buildCustomerId(name, phone);
+
+  // 5) create record
+  const record = await airtableRequest(
+    `/${encodeURIComponent(AIRTABLE_TABLE_APPOINTMENTS)}`,
+    {
+      method: "POST",
+      body: {
+        records: [
+          {
+            fields: {
+              staffId,
+              customerId,
+              services: service.id,
+              start_time,
+              end_time,
+              note: note || "",
+              status: "PENDING",
+              idempotency_key: idempotency_key || ""
+            }
+          }
+        ]
+      }
+    }
+  );
+
+  return record.records?.[0];
+}
+
+/* =======================
+   ROUTES
+======================= */
+
+// Check slot
+app.get("/v1/airtable/availability", async (req, res) => {
+  try {
+    const { staffId, start, end } = req.query;
+
+    const data = await checkAvailability({
+      staffRecordId: staffId,
+      startISO: start,
+      endISO: end
+    });
+
+    res.json(data);
+  } catch (e) {
+    res.status(e.status || 500).json({
+      ok: false,
+      error: e.message,
+      detail: e.data || null
+    });
+  }
+});
+
+// Create booking
+app.post("/v1/airtable/appointments", async (req, res) => {
+  try {
+    const idempotency = req.header("Idempotency-Key") || "";
+
+    const record = await createAppointment({
+      ...req.body,
+      idempotency_key: idempotency
+    });
+
+    res.status(201).json({
+      ok: true,
+      appointment: record
+    });
+  } catch (e) {
+    res.status(e.status || 500).json({
+      ok: false,
+      error: e.message,
+      conflicts: e.conflicts || null,
+      detail: e.data || null
+    });
+  }
+});
+
+
 const port = process.env.PORT || 3000;
 // app.listen(port, () => console.log(`listening on ${port}`));
 
