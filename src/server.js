@@ -516,7 +516,8 @@ async function createAppointment(payload) {
   const end_time = addMinutesLocal(start_time, service.duration);
 
   // 3) tìm staff available
-  const staffId = await findAvailableStaff(start_time, end_time);
+  // const staffId = await findAvailableStaff(start_time, end_time);
+  const staffId = getRandomStaff();
   if (!staffId) {
     const e = new Error("NO_STAFF_AVAILABLE");
     e.status = 409;
