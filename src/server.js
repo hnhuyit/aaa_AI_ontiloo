@@ -580,6 +580,7 @@ app.get("/v1/airtable/availability", async (req, res) => {
 
 // Create booking
 app.post("/v1/airtable/appointments", async (req, res) => {
+  console.log("BODY appointments:", req.body);   // 👈 thêm dòng này
   try {
     const { time, note, referenceId, customer } = req.body;
 
